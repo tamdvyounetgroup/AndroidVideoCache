@@ -120,7 +120,10 @@ class ProxyCache {
         long offset = 0;
         try {
             offset = cache.available();
-            source.open(offset);
+            boolean needCover = source.open(offset);
+            if (needCover) {
+                offset = 0;
+            }
             sourceAvailable = source.length();
             byte[] buffer = new byte[ProxyCacheUtils.DEFAULT_BUFFER_SIZE];
             int readBytes;
