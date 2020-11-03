@@ -1,6 +1,7 @@
 package com.danikula.videocache.file;
 
 import android.text.TextUtils;
+import android.util.Log;
 
 import com.danikula.videocache.ProxyCacheUtils;
 

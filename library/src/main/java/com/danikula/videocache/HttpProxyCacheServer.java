@@ -4,6 +4,7 @@ import android.content.Context;
 import android.net.Uri;
 
 import com.danikula.videocache.file.DiskUsage;
+import com.danikula.videocache.file.FileCache;
 import com.danikula.videocache.file.FileNameGenerator;
 import com.danikula.videocache.file.Md5FileNameGenerator;
 import com.danikula.videocache.file.TotalCountLruDiskUsage;
@@ -71,6 +72,7 @@ public class HttpProxyCacheServer {
 
     private HttpProxyCacheServer(Config config) {
         this.config = checkNotNull(config);
+        PreloadManager.getInstance().setConfig(config);
         try {
             InetAddress inetAddress = InetAddress.getByName(PROXY_HOST);
             this.serverSocket = new ServerSocket(0, 8, inetAddress);
