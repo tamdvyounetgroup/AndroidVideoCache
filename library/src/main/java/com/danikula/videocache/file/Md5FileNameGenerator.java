@@ -15,9 +15,9 @@ public class Md5FileNameGenerator implements FileNameGenerator {
     private static final int MAX_EXTENSION_LENGTH = 4;
 
     @Override
-    public String generate(String url) {
+    public String generate(String id, String url) {
         String extension = getExtension(url);
-        String name = ProxyCacheUtils.computeMD5(url);
+        String name = ProxyCacheUtils.computeMD5(id);
         return TextUtils.isEmpty(extension) ? name : name + "." + extension;
     }
 

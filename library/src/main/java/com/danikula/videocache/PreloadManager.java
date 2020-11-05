@@ -43,17 +43,17 @@ public class PreloadManager {
         return sInstance;
     }
 
-    public void preload(String url, long preloadLength) {
-        if (preloadFutures.containsKey(url)) {
-            Log.d("Preload", "is already in preload :" + url);
+    public void preload(String id, String url, long preloadLength) {
+        if (preloadFutures.containsKey(id)) {
+            Log.d("Preload", "is already in preload :" + id);
             return;
         }
-        Log.d("Preload", "try preload :" + url);
+        Log.d("Preload", "try preload :" + id);
         Future t = executor.submit(new Runnable() {
             @Override
             public void run() {
                 try {
-                    FileCache cache = new FileCache(config.generateCacheFile(url), config.diskUsage);
+                    FileCache cache = new FileCache(config.generateCacheFile(id, url), config.diskUsage);
                     if (cache.isCompleted() || cache.available() > 0) {
                         Log.d("Preload", "can't preload" + url);
                         return;
@@ -69,8 +69,8 @@ public class PreloadManager {
                     cache.close();
                     inputStream.close();
                     connection.disconnect();
-                    preloadFutures.remove(url);
-                    Log.d("Preload", "preload success :" + url);
+                    preloadFutures.remove(id);
+                    Log.d("Preload", "preload success :" + id);
                 } catch (ProxyCacheException | IOException e) {
                     Log.d("Preload", "preload failed :" + e.getMessage());
                     e.printStackTrace();
@@ -117,13 +117,13 @@ public class PreloadManager {
     }
 
 
-    public boolean isPreloading(String url) {
-        return preloadFutures.containsKey(url);
+    public boolean isPreloading(String id) {
+        return preloadFutures.containsKey(id);
     }
 
-    public void cancel(String url) {
-        if (preloadFutures.containsKey(url)) {
-            preloadFutures.remove(url).cancel(true);
+    public void cancel(String id) {
+        if (preloadFutures.containsKey(id)) {
+            preloadFutures.remove(id).cancel(true);
         }
     }
 
@@ -133,7 +133,7 @@ public class PreloadManager {
         }
     }
 
-    public boolean hasCache(String url) {
+    public boolean hasCache(String id) {
         return false;
     }
 

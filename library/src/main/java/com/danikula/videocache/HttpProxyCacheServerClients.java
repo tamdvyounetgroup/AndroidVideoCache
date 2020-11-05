@@ -24,15 +24,17 @@ final class HttpProxyCacheServerClients {
 
     private final AtomicInteger clientsCount = new AtomicInteger(0);
     private final String url;
+    private final String vid;
     private volatile HttpProxyCache proxyCache;
     private final List<CacheListener> listeners = new CopyOnWriteArrayList<>();
     private final CacheListener uiCacheListener;
     private final Config config;
 
-    public HttpProxyCacheServerClients(String url, Config config) {
+    public HttpProxyCacheServerClients(String vid, String url, Config config) {
         this.url = checkNotNull(url);
+        this.vid = checkNotNull(vid);
         this.config = checkNotNull(config);
-        this.uiCacheListener = new UiListenerHandler(url, listeners);
+        this.uiCacheListener = new UiListenerHandler(vid, listeners);
     }
 
     public void processRequest(GetRequest request, Socket socket) throws ProxyCacheException, IOException {
@@ -83,7 +85,7 @@ final class HttpProxyCacheServerClients {
             PreloadManager.getInstance().cancel(url);
         }
         HttpUrlSource source = new HttpUrlSource(url, config.sourceInfoStorage, config.headerInjector);
-        FileCache cache = new FileCache(config.generateCacheFile(url), config.diskUsage);
+        FileCache cache = new FileCache(config.generateCacheFile(vid, url), config.diskUsage);
         HttpProxyCache httpProxyCache = new HttpProxyCache(source, cache);
         httpProxyCache.registerCacheListener(uiCacheListener);
         return httpProxyCache;
@@ -91,12 +93,12 @@ final class HttpProxyCacheServerClients {
 
     private static final class UiListenerHandler extends Handler implements CacheListener {
 
-        private final String url;
+        private final String vid;
         private final List<CacheListener> listeners;
 
-        public UiListenerHandler(String url, List<CacheListener> listeners) {
+        public UiListenerHandler(String vid, List<CacheListener> listeners) {
             super(Looper.getMainLooper());
-            this.url = url;
+            this.vid = vid;
             this.listeners = listeners;
         }
 
@@ -111,7 +113,7 @@ final class HttpProxyCacheServerClients {
         @Override
         public void handleMessage(Message msg) {
             for (CacheListener cacheListener : listeners) {
-                cacheListener.onCacheAvailable((File) msg.obj, url, msg.arg1);
+                cacheListener.onCacheAvailable((File) msg.obj, vid, msg.arg1);
             }
         }
     }

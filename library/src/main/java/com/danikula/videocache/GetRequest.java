@@ -1,6 +1,8 @@
 package com.danikula.videocache;
 
+import android.net.Uri;
 import android.text.TextUtils;
+import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -31,6 +33,7 @@ class GetRequest {
         this.rangeOffset = Math.max(0, offset);
         this.partial = offset >= 0;
         this.uri = findUri(request);
+        Log.d("GetRequest", uri);
     }
 
     public static GetRequest read(InputStream inputStream) throws IOException {
