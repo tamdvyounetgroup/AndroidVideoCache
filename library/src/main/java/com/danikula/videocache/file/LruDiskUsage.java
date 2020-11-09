@@ -1,5 +1,7 @@
 package com.danikula.videocache.file;
 
+import com.danikula.videocache.ItemCachesHolder;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +42,7 @@ public abstract class LruDiskUsage implements DiskUsage {
             boolean accepted = accept(file, totalSize, totalCount);
             if (!accepted) {
                 long fileSize = file.length();
+                ItemCachesHolder.getInstance().removeFileCache(file);
                 boolean deleted = file.delete();
                 if (deleted) {
                     totalCount--;

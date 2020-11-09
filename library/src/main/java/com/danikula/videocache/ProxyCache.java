@@ -69,6 +69,7 @@ class ProxyCache {
                     sourceReaderThread.interrupt();
                 }
                 cache.close();
+                ItemCachesHolder.getInstance().removeFileCache(cache);
             } catch (ProxyCacheException e) {
                 onError(e);
             }

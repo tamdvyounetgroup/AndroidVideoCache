@@ -5,6 +5,7 @@ import android.util.Log;
 import com.danikula.videocache.file.FileCache;
 
 import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -24,6 +25,7 @@ import static java.net.HttpURLConnection.HTTP_SEE_OTHER;
 
 public class PreloadManager {
     private static PreloadManager sInstance;
+    private static final String TAG = "PreloadManager";
     private Config config;
     private ExecutorService executor = Executors.newSingleThreadExecutor();
     private Map<String, Future> preloadFutures = new HashMap<>();
@@ -45,17 +47,19 @@ public class PreloadManager {
 
     public void preload(String id, String url, long preloadLength) {
         if (preloadFutures.containsKey(id)) {
-            Log.d("Preload", "is already in preload :" + id);
+            Log.d(TAG, "is already in preload :" + id);
             return;
         }
-        Log.d("Preload", "try preload :" + id);
+        Log.d(TAG, "try preload :" + id);
         Future t = executor.submit(new Runnable() {
             @Override
             public void run() {
+                FileCache cache = null;
                 try {
-                    FileCache cache = new FileCache(config.generateCacheFile(id, url), config.diskUsage);
+                    //FileCache cache = new FileCache(config.generateCacheFile(id, url), config.diskUsage);
+                    cache = ItemCachesHolder.getInstance().getFileCache(id, url, config);
                     if (cache.isCompleted() || cache.available() > 0) {
-                        Log.d("Preload", "can't preload" + url);
+                        Log.d(TAG, "can't preload" + url);
                         return;
                     }
 
@@ -70,10 +74,18 @@ public class PreloadManager {
                     inputStream.close();
                     connection.disconnect();
                     preloadFutures.remove(id);
-                    Log.d("Preload", "preload success :" + id);
+                    ItemCachesHolder.getInstance().removeFileCache(id);
+                    Log.d(TAG, "preload success :" + id);
                 } catch (ProxyCacheException | IOException e) {
-                    Log.d("Preload", "preload failed :" + e.getMessage());
+                    Log.d(TAG, "preload failed :" + e.getMessage());
                     e.printStackTrace();
+                    preloadFutures.remove(id);
+                    if (cache != null) {
+                        File file = cache.getFile();
+                        ItemCachesHolder.getInstance().removeFileCache(id);
+                        file.deleteOnExit();
+                    }
+
                 }
             }
         });
