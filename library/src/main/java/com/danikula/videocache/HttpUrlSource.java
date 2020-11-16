@@ -17,6 +17,11 @@ import java.io.InterruptedIOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 import static com.danikula.videocache.Preconditions.checkNotNull;
 import static com.danikula.videocache.ProxyCacheUtils.DEFAULT_BUFFER_SIZE;
@@ -39,7 +44,7 @@ public class HttpUrlSource implements Source {
     private final SourceInfoStorage sourceInfoStorage;
     private final HeaderInjector headerInjector;
     private SourceInfo sourceInfo;
-    private HttpURLConnection connection;
+    private Response response;
     private InputStream inputStream;
 
     public HttpUrlSource(String url) {
@@ -77,15 +82,15 @@ public class HttpUrlSource implements Source {
         boolean needCover=false;//缓存出错重新下载需要覆盖旧文件
         try {
             try {
-                connection = openConnection(offset, -1);
+                response = request(offset, -1);
             } catch (IOException e) {
-                connection = openConnection(0, -1);
+                response = request(0, -1);
                 needCover = true;
             }
 
-            String mime = connection.getContentType();
-            inputStream = new BufferedInputStream(connection.getInputStream(), DEFAULT_BUFFER_SIZE);
-            long length = readSourceAvailableBytes(connection, offset, connection.getResponseCode());
+            String mime = response.header("content-type");
+            inputStream = new BufferedInputStream(response.body().byteStream(), DEFAULT_BUFFER_SIZE);
+            long length = readSourceAvailableBytes(response, offset, response.code());
             this.sourceInfo = new SourceInfo(sourceInfo.url, length, mime);
             this.sourceInfoStorage.put(sourceInfo.url, sourceInfo);
         } catch (IOException e) {
@@ -94,22 +99,22 @@ public class HttpUrlSource implements Source {
         return needCover;
     }
 
-    private long readSourceAvailableBytes(HttpURLConnection connection, long offset, int responseCode) throws IOException {
-        long contentLength = getContentLength(connection);
+    private long readSourceAvailableBytes(Response response, long offset, int responseCode) throws IOException {
+        long contentLength = getContentLength(response);
         return responseCode == HTTP_OK ? contentLength
                 : responseCode == HTTP_PARTIAL ? contentLength + offset : sourceInfo.length;
     }
 
-    private long getContentLength(HttpURLConnection connection) {
-        String contentLengthValue = connection.getHeaderField("Content-Length");
+    private long getContentLength(Response response) {
+        String contentLengthValue = response.header("Content-Length");
         return contentLengthValue == null ? -1 : Long.parseLong(contentLengthValue);
     }
 
     @Override
     public void close() throws ProxyCacheException {
-        if (connection != null) {
+        if (response != null) {
             try {
-                connection.disconnect();
+                response.close();
             } catch (NullPointerException | IllegalArgumentException e) {
                 String message = "Wait... but why? WTF!? " +
                         "Really shouldn't happen any more after fixing https://github.com/danikula/AndroidVideoCache/issues/43. " +
@@ -140,13 +145,13 @@ public class HttpUrlSource implements Source {
 
     private void fetchContentInfo() throws ProxyCacheException {
         LOG.debug("Read content info from " + sourceInfo.url);
-        HttpURLConnection urlConnection = null;
+        Response response = null;
         InputStream inputStream = null;
         try {
-            urlConnection = openConnection(0, 10000);
-            long length = getContentLength(urlConnection);
-            String mime = urlConnection.getContentType();
-            inputStream = urlConnection.getInputStream();
+            response = request(0, 10000);
+            long length = getContentLength(response);
+            String mime = response.header("content-type");
+            inputStream = response.body().byteStream();
             this.sourceInfo = new SourceInfo(sourceInfo.url, length, mime);
             this.sourceInfoStorage.put(sourceInfo.url, sourceInfo);
             LOG.debug("Source info fetched: " + sourceInfo);
@@ -154,46 +159,51 @@ public class HttpUrlSource implements Source {
             LOG.error("Error fetching info from " + sourceInfo.url, e);
         } finally {
             ProxyCacheUtils.close(inputStream);
-            if (urlConnection != null) {
-                urlConnection.disconnect();
+            if (response != null) {
+               response.close();
             }
         }
     }
 
-    private HttpURLConnection openConnection(long offset, int timeout) throws IOException, ProxyCacheException {
-        HttpURLConnection connection;
+    private Response request(long offset, int timeout) throws IOException, ProxyCacheException {
+        Response response;
         boolean redirected;
         int redirectCount = 0;
         String url = this.sourceInfo.url;
+
         do {
             LOG.debug("Open connection " + (offset > 0 ? " with offset " + offset : "") + " to " + url);
-            connection = (HttpURLConnection) new URL(url).openConnection();
-            injectCustomHeaders(connection, url);
+            Request.Builder requestBuilder = new Request.Builder().url(url);
+            injectCustomHeaders(requestBuilder, url);
+//            connection = (HttpURLConnection) new URL(url).openConnection();
+//            injectCustomHeaders(connection, url);
             if (offset > 0) {
-                connection.setRequestProperty("Range", "bytes=" + offset + "-");
+                requestBuilder.addHeader("Range", "bytes=" + offset + "-");
             }
+            OkHttpClient.Builder clientBuilder = OkHttpProvider.INSTANCE.getBuilder();
+            clientBuilder.followRedirects(false);
             if (timeout > 0) {
-                connection.setConnectTimeout(timeout);
-                connection.setReadTimeout(timeout);
+                clientBuilder.connectTimeout(timeout, TimeUnit.SECONDS);
+                clientBuilder.readTimeout(timeout, TimeUnit.SECONDS);
             }
-            int code = connection.getResponseCode();
-            redirected = code == HTTP_MOVED_PERM || code == HTTP_MOVED_TEMP || code == HTTP_SEE_OTHER;
+            response = clientBuilder.build().newCall(requestBuilder.build()).execute();
+            redirected = response.isRedirect();
             if (redirected) {
-                url = connection.getHeaderField("Location");
+                url = response.header("Location");
                 redirectCount++;
-                connection.disconnect();
+                response.close();
             }
             if (redirectCount > MAX_REDIRECTS) {
-                throw new ProxyCacheException("Too many redirects: " + redirectCount);
+                    throw new ProxyCacheException("Too many redirects: " + redirectCount);
             }
         } while (redirected);
-        return connection;
+        return response;
     }
 
-    private void injectCustomHeaders(HttpURLConnection connection, String url) {
+    private void injectCustomHeaders(Request.Builder request, String url) {
         Map<String, String> extraHeaders = headerInjector.addHeaders(url);
         for (Map.Entry<String, String> header : extraHeaders.entrySet()) {
-            connection.setRequestProperty(header.getKey(), header.getValue());
+            request.addHeader(header.getKey(), header.getValue());
         }
     }
 

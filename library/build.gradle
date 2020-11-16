@@ -3,6 +3,8 @@ repositories {
 }
 
 apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-android-extensions'
 apply plugin: 'com.github.dcendents.android-maven'
 
 android {
@@ -24,6 +26,7 @@ android {
 
 
 dependencies {
+    api "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'org.slf4j:slf4j-android:1.7.21'
     implementation 'com.squareup.okhttp3:okhttp:3.12.1'
 }

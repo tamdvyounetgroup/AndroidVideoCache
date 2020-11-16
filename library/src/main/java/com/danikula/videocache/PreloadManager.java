@@ -14,9 +14,11 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.Response;
 
 import static com.danikula.videocache.ProxyCacheUtils.DEFAULT_BUFFER_SIZE;
 import static java.net.HttpURLConnection.HTTP_MOVED_PERM;
@@ -63,8 +65,8 @@ public class PreloadManager {
                         return;
                     }
 
-                    HttpURLConnection connection = openConnection(url, preloadLength, -1);
-                    BufferedInputStream inputStream = new BufferedInputStream(connection.getInputStream(), DEFAULT_BUFFER_SIZE);
+                    Response response = request(url, preloadLength, -1);
+                    BufferedInputStream inputStream = new BufferedInputStream(response.body().byteStream(), DEFAULT_BUFFER_SIZE);
                     byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
                     int readBytes;
                     while ((readBytes = inputStream.read(buffer)) != -1) {
@@ -72,7 +74,7 @@ public class PreloadManager {
                     }
                     cache.close();
                     inputStream.close();
-                    connection.disconnect();
+                    response.close();
                     preloadFutures.remove(id);
                     ItemCachesHolder.getInstance().removeFileCache(id);
                     Log.d(TAG, "preload success :" + id);
@@ -93,41 +95,44 @@ public class PreloadManager {
 
     }
 
-    private void injectCustomHeaders(HttpURLConnection connection, String url) {
-        Map<String, String> extraHeaders = config.headerInjector.addHeaders(url);
-        for (Map.Entry<String, String> header : extraHeaders.entrySet()) {
-            connection.setRequestProperty(header.getKey(), header.getValue());
-        }
-    }
-
-    private HttpURLConnection openConnection(String url, long size, int timeout) throws IOException, ProxyCacheException {
-        HttpURLConnection connection;
+    private Response request(String url, long size,  int timeout) throws IOException, ProxyCacheException {
+        Response response;
         boolean redirected;
         int redirectCount = 0;
+
         do {
-            connection = (HttpURLConnection) new URL(url).openConnection();
-            injectCustomHeaders(connection, url);
+            Request.Builder requestBuilder = new Request.Builder().url(url);
+            injectCustomHeaders(requestBuilder, url);
             if (size > 0) {
-                connection.setRequestProperty("Range", "bytes=0-" + size);
+                requestBuilder.addHeader("Range", "bytes=0-" + size);
             }
+            OkHttpClient.Builder clientBuilder = OkHttpProvider.INSTANCE.getBuilder();
+            clientBuilder.followRedirects(false);
             if (timeout > 0) {
-                connection.setConnectTimeout(timeout);
-                connection.setReadTimeout(timeout);
+                clientBuilder.connectTimeout(timeout, TimeUnit.SECONDS);
+                clientBuilder.readTimeout(timeout, TimeUnit.SECONDS);
             }
-            int code = connection.getResponseCode();
-            redirected = code == HTTP_MOVED_PERM || code == HTTP_MOVED_TEMP || code == HTTP_SEE_OTHER;
+            response = clientBuilder.build().newCall(requestBuilder.build()).execute();
+            redirected = response.isRedirect();
             if (redirected) {
-                url = connection.getHeaderField("Location");
+                url = response.header("Location");
                 redirectCount++;
-                connection.disconnect();
+                response.close();
             }
             if (redirectCount > MAX_REDIRECTS) {
                 throw new ProxyCacheException("Too many redirects: " + redirectCount);
             }
         } while (redirected);
-        return connection;
+        return response;
     }
 
+
+    private void injectCustomHeaders(Request.Builder request, String url) {
+        Map<String, String> extraHeaders = config.headerInjector.addHeaders(url);
+        for (Map.Entry<String, String> header : extraHeaders.entrySet()) {
+            request.addHeader(header.getKey(), header.getValue());
+        }
+    }
 
     public boolean isPreloading(String id) {
         return preloadFutures.containsKey(id);
