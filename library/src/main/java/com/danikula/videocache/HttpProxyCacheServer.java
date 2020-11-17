@@ -73,6 +73,7 @@ public class HttpProxyCacheServer {
     private HttpProxyCacheServer(Config config) {
         this.config = checkNotNull(config);
         PreloadManager.getInstance().setConfig(config);
+        PreloadManager.getInstance().setProxyCacheServer(this);
         try {
             InetAddress inetAddress = InetAddress.getByName(PROXY_HOST);
             this.serverSocket = new ServerSocket(0, 8, inetAddress);
@@ -194,7 +195,7 @@ public class HttpProxyCacheServer {
         return String.format(Locale.US, "http://%s:%d/%s", PROXY_HOST, port, ProxyCacheUtils.encode(Uri.parse(url).buildUpon().appendQueryParameter("vid", videoId).build().toString()));
     }
 
-    private File getCacheFile(String id, String url) {
+    public File getCacheFile(String id, String url) {
         File cacheDir = config.cacheRoot;
         String fileName = config.fileNameGenerator.generate(id, url);
         return new File(cacheDir, fileName);

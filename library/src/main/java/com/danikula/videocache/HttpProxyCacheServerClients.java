@@ -85,8 +85,8 @@ final class HttpProxyCacheServerClients {
             PreloadManager.getInstance().cancel(url);
         }
         HttpUrlSource source = new HttpUrlSource(url, config.sourceInfoStorage, config.headerInjector);
-        FileCache cache = ItemCachesHolder.getInstance().getFileCache(vid, url, config);
-        HttpProxyCache httpProxyCache = new HttpProxyCache(source, cache);
+        FileCache fileCache = new FileCache(config.generateCacheFile(vid, url), config.diskUsage);
+        HttpProxyCache httpProxyCache = new HttpProxyCache(source, fileCache);
         httpProxyCache.registerCacheListener(uiCacheListener);
         return httpProxyCache;
     }

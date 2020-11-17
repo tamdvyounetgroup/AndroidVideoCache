@@ -33,7 +33,7 @@ class GetRequest {
         this.rangeOffset = Math.max(0, offset);
         this.partial = offset >= 0;
         this.uri = findUri(request);
-        Log.d("GetRequest", uri);
+        Log.d("GetRequest", "rangeOffset:" + rangeOffset + " offset:" + offset + uri);
     }
 
     public static GetRequest read(InputStream inputStream) throws IOException {

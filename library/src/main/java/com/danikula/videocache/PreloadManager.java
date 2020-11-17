@@ -32,12 +32,17 @@ public class PreloadManager {
     private ExecutorService executor = Executors.newSingleThreadExecutor();
     private Map<String, Future> preloadFutures = new HashMap<>();
     private static final int MAX_REDIRECTS = 3;
+    private HttpProxyCacheServer proxyCacheServer;
 
     private PreloadManager() {
     }
 
     public void setConfig(Config config) {
         this.config = config;
+    }
+
+    public void setProxyCacheServer(HttpProxyCacheServer server) {
+        this.proxyCacheServer = server;
     }
 
     public static PreloadManager getInstance() {
@@ -56,38 +61,46 @@ public class PreloadManager {
         Future t = executor.submit(new Runnable() {
             @Override
             public void run() {
-                FileCache cache = null;
                 try {
                     //FileCache cache = new FileCache(config.generateCacheFile(id, url), config.diskUsage);
-                    cache = ItemCachesHolder.getInstance().getFileCache(id, url, config);
-                    if (cache.isCompleted() || cache.available() > 0) {
-                        Log.d(TAG, "can't preload" + url);
+//                    cache = ItemCachesHolder.getInstance().getFileCache(id, url, config);
+//                    if (cache.isCompleted() || cache.available() > 0) {
+//                        Log.d(TAG, "can't preload" + url);
+//                        return;
+//                    }
+                    if (proxyCacheServer == null) {
+                        Log.d(TAG, "cache server not init can't preload");
                         return;
                     }
+                    File file = config.generateCacheFile(id, url);
+                    if (file.exists()) {
+                        Log.d(TAG, "file has exist " + file.getName());
+                        return;
+                    }
+                    File tempFile = new File(file.getParentFile(), file.getName() + ".download");
 
-                    Response response = request(url, preloadLength, -1);
+                    if (tempFile.exists()) {
+                        Log.d(TAG, "preload file has exist " + tempFile.getName());
+
+                        return;
+                    }
+                    String proxyUrl = proxyCacheServer.getProxyUrl(id, url);
+                    Response response = request(proxyUrl, preloadLength, -1);
+
                     BufferedInputStream inputStream = new BufferedInputStream(response.body().byteStream(), DEFAULT_BUFFER_SIZE);
                     byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
-                    int readBytes;
-                    while ((readBytes = inputStream.read(buffer)) != -1) {
-                        cache.append(buffer, readBytes);
+                    while ((inputStream.read(buffer)) != -1) {
                     }
-                    cache.close();
                     inputStream.close();
                     response.close();
+
                     preloadFutures.remove(id);
-                    ItemCachesHolder.getInstance().removeFileCache(id);
+                    //ItemCachesHolder.getInstance().removeFileCache(id);
                     Log.d(TAG, "preload success :" + id);
                 } catch (ProxyCacheException | IOException e) {
                     Log.d(TAG, "preload failed :" + e.getMessage());
                     e.printStackTrace();
                     preloadFutures.remove(id);
-                    if (cache != null) {
-                        File file = cache.getFile();
-                        ItemCachesHolder.getInstance().removeFileCache(id);
-                        file.deleteOnExit();
-                    }
-
                 }
             }
         });
