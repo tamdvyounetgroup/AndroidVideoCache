@@ -9,11 +9,8 @@ apply plugin: 'kotlin-android-extensions'
 apply plugin: "maven-publish"
 
 def githubProperties = new Properties()
-try {
-    githubProperties.load(new FileInputStream(rootProject.file("local.properties")))
-} catch(exception) {
+githubProperties.load(new FileInputStream(rootProject.file("local.properties")))
 
-}
 
 android {
     compileSdkVersion COMPILE_SDK_VERSION as int
