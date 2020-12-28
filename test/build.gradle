@@ -1,5 +1,7 @@
 repositories {
     maven { url 'https://dl.bintray.com/alexeydanilov/maven' }
+    google()
+    jcenter()
 }
 
 apply plugin: 'com.android.application'
