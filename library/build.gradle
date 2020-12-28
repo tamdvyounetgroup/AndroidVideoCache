@@ -1,11 +1,15 @@
 repositories {
     jcenter()
+    google()
 }
 
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
-apply plugin: 'com.github.dcendents.android-maven'
+apply plugin: "maven-publish"
+
+def githubProperties = new Properties()
+githubProperties.load(new FileInputStream(rootProject.file("local.properties")))
 
 android {
     compileSdkVersion COMPILE_SDK_VERSION as int
@@ -58,4 +62,33 @@ artifacts {
     archives classesJar
     archives javadocJar
     archives sourcesJar
+}
+
+project.afterEvaluate {
+    publishing {
+        repositories {
+            maven {
+                name = "AndroidVideoCache"
+                url = uri("https://maven.pkg.github.com/OOOOO-R-D/AndroidVideoCache")
+                credentials {
+                    username = githubProperties.getProperty("gpr.user") ?: System.getenv("USERNAME")
+                    password = githubProperties.getProperty("gpr.key") ?: System.getenv("TOKEN")
+                }
+            }
+        }
+        publications {
+            gpr(MavenPublication) {
+                // Applies the component for the release build variant.
+                from components.release
+
+                // You can then customize attributes of the publication as shown below.
+                groupId = 'com.ooooo.module'
+                artifactId = 'videocache'
+                version = "1.0.1"
+            }
+//            gpr(MavenPublication) {
+//                from(components.release)
+//            }
+        }
+    }
 }
