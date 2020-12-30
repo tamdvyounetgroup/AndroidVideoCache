@@ -8,10 +8,6 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: "maven-publish"
 
-def githubProperties = new Properties()
-githubProperties.load(new FileInputStream(rootProject.file("local.properties")))
-
-
 android {
     compileSdkVersion COMPILE_SDK_VERSION as int
     buildToolsVersion BUILD_TOOLS_VERSION
@@ -72,8 +68,8 @@ project.afterEvaluate {
                 name = "AndroidVideoCache"
                 url = uri("https://maven.pkg.github.com/OOOOO-R-D/AndroidVideoCache")
                 credentials {
-                    username = githubProperties.getProperty("gpr.user") ?: System.getenv("USERNAME")
-                    password = githubProperties.getProperty("gpr.key") ?: System.getenv("TOKEN")
+                    username = System.getenv("USERNAME")
+                    password = System.getenv("TOKEN")
                 }
             }
         }
@@ -85,7 +81,7 @@ project.afterEvaluate {
                 // You can then customize attributes of the publication as shown below.
                 groupId = 'com.ooooo.module'
                 artifactId = 'videocache'
-                version = "1.0.1"
+                version = "1.0.2"
             }
 //            gpr(MavenPublication) {
 //                from(components.release)
