@@ -29,6 +29,7 @@ class ProxyCache {
     private volatile Thread sourceReaderThread;
     private volatile boolean stopped;
     private volatile int percentsAvailable = -1;
+    private ProxyCacheException exception;
 
     public ProxyCache(Source source, Cache cache) {
         this.source = checkNotNull(source);
@@ -54,6 +55,9 @@ class ProxyCache {
 
     private void checkReadSourceErrorsCount() throws ProxyCacheException {
         int errorsCount = readSourceErrorsCount.get();
+        if (exception != null) {
+            throw exception;
+        }
         if (errorsCount >= MAX_READ_SOURCE_ATTEMPTS) {
             readSourceErrorsCount.set(0);
             throw new ProxyCacheException("Error reading source " + errorsCount + " times");
@@ -181,6 +185,9 @@ class ProxyCache {
             LOG.debug("ProxyCache is interrupted");
         } else {
             LOG.error("ProxyCache error", e);
+        }
+        if (e instanceof ProxyCacheException) {
+            exception = (ProxyCacheException) e;
         }
     }
 
