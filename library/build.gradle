@@ -81,7 +81,7 @@ project.afterEvaluate {
                 // You can then customize attributes of the publication as shown below.
                 groupId = 'com.ooooo.module'
                 artifactId = 'videocache'
-                version = "1.0.3"
+                version = "1.0.4"
             }
 //            gpr(MavenPublication) {
 //                from(components.release)

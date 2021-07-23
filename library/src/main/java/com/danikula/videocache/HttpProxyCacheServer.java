@@ -2,6 +2,7 @@ package com.danikula.videocache;
 
 import android.content.Context;
 import android.net.Uri;
+import android.util.Log;
 
 import com.danikula.videocache.file.DiskUsage;
 import com.danikula.videocache.file.FileCache;
@@ -259,11 +260,11 @@ public class HttpProxyCacheServer {
                         " " +
                         e.getMessage() +
                         "\n" +
-                        "Content-Length: 0\n";
+                        "Content-Length: 0\n\n";
+                    LOG.debug(responseHeaders);
 
                     out.write(responseHeaders.getBytes("UTF-8"));
                     out.flush();
-                    out.close();
                 } catch (IOException ioException) {
                     ioException.printStackTrace();
                 }
