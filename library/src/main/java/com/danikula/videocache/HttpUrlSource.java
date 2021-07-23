@@ -193,6 +193,9 @@ public class HttpUrlSource implements Source {
                 redirectCount++;
                 response.close();
             }
+            if (response.code() >= 400) {
+                throw new ProxyCacheException(ProxyCacheException.ERROR_TYPE_HTTP, response.code(), response.message());
+            }
             if (redirectCount > MAX_REDIRECTS) {
                     throw new ProxyCacheException("Too many redirects: " + redirectCount);
             }

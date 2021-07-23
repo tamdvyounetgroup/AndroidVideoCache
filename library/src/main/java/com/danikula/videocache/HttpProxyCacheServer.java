@@ -17,8 +17,10 @@ import com.danikula.videocache.sourcestorage.SourceInfoStorageFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -246,7 +248,29 @@ public class HttpProxyCacheServer {
             // There is no way to determine that client closed connection http://stackoverflow.com/a/10241044/999458
             // So just to prevent log flooding don't log stacktrace
             LOG.debug("Closing socket… Socket is closed by client.");
-        } catch (ProxyCacheException | IOException e) {
+        } catch (ProxyCacheException e) {
+            if (e.getErrorType() == ProxyCacheException.ERROR_TYPE_HTTP) {
+
+                try {
+                    OutputStream out = new BufferedOutputStream(socket.getOutputStream());
+
+                    String responseHeaders = "HTTP/1.1 " +
+                        e.getErrorCode() +
+                        " " +
+                        e.getMessage() +
+                        "\n" +
+                        "Content-Length: 0\n";
+
+                    out.write(responseHeaders.getBytes("UTF-8"));
+                    out.flush();
+                    out.close();
+                } catch (IOException ioException) {
+                    ioException.printStackTrace();
+                }
+            } else {
+                onError(e);
+            }
+        } catch (IOException e) {
             onError(new ProxyCacheException("Error processing request", e));
         } finally {
             releaseSocket(socket);
